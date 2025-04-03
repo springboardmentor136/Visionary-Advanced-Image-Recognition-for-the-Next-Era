@@ -6,3 +6,5 @@ Flask_SocketIO==5.5.1
 numpy==2.2.4
 opencv_python==4.11.0.86
 opencv_python_headless==4.11.0.86
+tensorflow==2.19.0
+
