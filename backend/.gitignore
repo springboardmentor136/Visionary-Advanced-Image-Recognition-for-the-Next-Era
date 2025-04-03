@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.env
+venv/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Data files
+*.pkl
+*.h5
+data.json
