@@ -1,5 +1,7 @@
-import os
 import eventlet
+eventlet.monkey_patch() 
+
+import os
 import json
 import base64
 import numpy as np
@@ -10,8 +12,6 @@ from flask_cors import CORS
 from deepface import DeepFace
 from threading import Semaphore
 import time
-
-eventlet.monkey_patch()
 
 app = Flask(__name__)
 CORS(app)
