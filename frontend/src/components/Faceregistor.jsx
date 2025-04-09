@@ -100,68 +100,44 @@ const FaceRegistration = () => {
     setIsImageCaptured(true);
 };
   
-// const handleRegister = async () => {
-//   if (!name || !capturedImage) {
-//     alert("Please enter your name and ensure face is detected.");
-//     return;
-//   }
-
-//   setLoading(true);
-
-//   try {
-//     const response = await fetch(capturedImage);
-//     const blob = await response.blob(); // ✅ Convert Base64 to Blob format for backend
-//     const file = new File([blob], "captured_face.png", { type: "image/png" });
-
-//     const formData = new FormData();
-//     formData.append("image", file);
-//     formData.append("name", name);
-
-//     const { data } = await axios.post("https://your-backend-url.com/upload", formData, {
-//       headers: { "Content-Type": "multipart/form-data" },
-//     });
-
-//     console.log("✅ Image uploaded successfully:", data);
-//     setIsFaceRegistered(true);
-
-//     setTimeout(() => {
-//       window.location.href = "/";
-//     }, 5000);
-
-//   } 
-//   catch (error) {
-//     console.error("❌ Error uploading image:", error);
-//   } 
-//   finally {
-//     setLoading(false);
-//   }
-// };
-
-
-
 const handleRegister = async () => {
-  if (!name) {
-    alert("Please enter your name.");
+  if (!name || !capturedImage) {
+    alert("Please enter your name and ensure face is detected.");
     return;
   }
 
   setLoading(true);
 
-  // Simulating image upload even without backend
-  setTimeout(() => {
-    setIsFaceRegistered(true); // ✅ Fake registration confirmation
-    
-    // ✅ Redirect to homepage after 5 seconds
+  try {
+    const response = await fetch(capturedImage);
+    const blob = await response.blob(); // ✅ Convert Base64 to Blob format for backend
+    const file = new File([blob], "captured_face.png", { type: "image/png" });
+
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("name", name);
+
+    const { data } = await axios.post("http://127.0.0.1:5000/register", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });    
+
+    console.log("✅ Image uploaded successfully:", data);
+    setIsFaceRegistered(true);
+
     setTimeout(() => {
       window.location.href = "/";
     }, 5000);
 
-  }, 2000); // Simulating a 2-second delay before confirmation
-
-  setLoading(false);
+  } 
+  catch (error) {
+    console.error("❌ Error uploading image:", error);
+  } 
+  finally {
+    setLoading(false);
+  }
 };
 
- 
+
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen">

@@ -4,6 +4,7 @@ import * as faceapi from "face-api.js";
 import Authentic from "../assets/Authentication.webp";
 
 const FaceAuthentication = () => {
+  const [isConfidenceHigh, setIsConfidenceHigh] = useState(false);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [webcamError, setWebcamError] = useState(false);
@@ -41,14 +42,14 @@ const FaceAuthentication = () => {
       const captureAndSendFrames = async () => {
         setLoading(true);
         setStatus("Authenticating in real time...");
-        
+      
         let sendingFrames = true;
-        const startTime = Date.now(); // Capture the start time
+        const startTime = Date.now();
       
         const interval = setInterval(async () => {
-          const elapsedTime = (Date.now() - startTime) / 1000; // Convert to seconds
+          const elapsedTime = (Date.now() - startTime) / 1000;
           if (elapsedTime > 5) {
-            clearInterval(interval); // Stop after 5 seconds
+            clearInterval(interval);
             setStatus("✅ Frames sent for authentication!");
             setLoading(false);
             return;
@@ -64,49 +65,57 @@ const FaceAuthentication = () => {
             return;
           }
       
-          // Convert Base64 image to Blob (if needed)
           const byteCharacters = atob(screenshot.split(",")[1]);
           const byteNumbers = Array.from(byteCharacters, (char) => char.charCodeAt(0));
           const byteArray = new Uint8Array(byteNumbers);
           const imageBlob = new Blob([byteArray], { type: "image/webp" });
       
-          // Convert Blob to Image for FaceAPI
           const image = await faceapi.bufferToImage(imageBlob);
           const detections = await faceapi.detectSingleFace(image).withFaceLandmarks().withFaceDescriptor();
-          
+      
           if (detections) {
-            const { width, height, x, y } = detections.detection.box;
             const confidence = (detections.detection.score * 100).toFixed(2);
-            drawBoundingBox(x, y, width, height, confidence);
+            drawBoundingBox(detections.detection.box.x, detections.detection.box.y, detections.detection.box.width, detections.detection.box.height, confidence);
+      
+            setStatus(`Confidence Level: ${confidence}%`);
       
             if (confidence >= 90) {
-              sendingFrames = true;
-              setCapturedImages((prev) => [...prev.slice(-5), screenshot]); // Keep last 5 images
+              setIsConfidenceHigh(true);
+              setCapturedImages((prev) => [...prev.slice(-5), screenshot]);
               socket.send(screenshot);
               console.log(`✅ Frame sent (Confidence: ${confidence}%)`);
             } else {
-              sendingFrames = false;
+              setIsConfidenceHigh(false);
               console.log(`⏸ Paused (Confidence too low: ${confidence}%)`);
             }
           }
         }, 1000);
-      };      
-            
+      };
+
+      const drawBoundingBox = (x, y, width, height, confidence) => {
+        const canvas = canvasRef.current;
+        if (!canvas) {
+          console.error("Canvas reference is null");
+          return;
+        }
       
-
-  const drawBoundingBox = (x, y, width, height, confidence) => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x, y, width, height);
-
-    ctx.fillStyle = "blue";
-    ctx.font = "16px Arial";
-    ctx.fillText(`Confidence: ${confidence}%`, x, y - 10);
-  };
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          console.error("Canvas context is not available");
+          return;
+        }
+      
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, width, height);
+      
+        ctx.fillStyle = "blue";
+        ctx.font = "16px Arial";
+        ctx.fillText(`Confidence: ${confidence}%`, x, y - 10);
+      };
+      
 
   return (
     <div className="flex flex-col items-center p-6 relative">
@@ -123,15 +132,16 @@ const FaceAuthentication = () => {
         <canvas ref={canvasRef} className="absolute inset-0" width={326} height={434} />
       </div>
       <div className="mt-4 z-10 flex flex-col items-center w-full">
-  <button
-    onClick={captureAndSendFrames}
-    className={`bg-red-500 text-white py-2 px-4 rounded border-2 border-black hover:bg-blue-600 ${
-      loading ? "cursor-not-allowed blur-sm" : ""
-    } hover:scale-110 transition-transform ease-linear duration-300`}
-    disabled={loading}
-  >
-    {loading ? "Authenticating..." : "Authenticate Face"}
-  </button>
+      <button
+        onClick={captureAndSendFrames}
+        className={`bg-red-500 text-white py-2 px-4 rounded border-2 border-black hover:bg-blue-600 ${
+          !isConfidenceHigh ? "cursor-not-allowed blur-sm" : ""
+        } hover:scale-110 transition-transform ease-linear duration-300`}
+        disabled={!isConfidenceHigh || loading}
+      >
+        {loading ? "Authenticating..." : "Authenticate Face"}
+      </button>
+
 
   <div className="mt-4 w-full flex flex-col items-center">
     <h2 className="text-sm font-semibold text-white">Images Sent to Backend:</h2>
