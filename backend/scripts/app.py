@@ -166,9 +166,7 @@ def authenticate(data):
 
             if min_similarity < 8:  # Threshold
                 return emit("auth_response", {
-                    "name": best_match,
-                    "confidence": float(1 - (min_similarity / 8)),
-                    "processing_time": time.time() - start_time
+                    "name": best_match
                 })
             else:
                 return emit("auth_response", {"name": "Unknown"})
