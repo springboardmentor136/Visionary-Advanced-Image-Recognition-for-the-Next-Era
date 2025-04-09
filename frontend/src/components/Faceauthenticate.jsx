@@ -23,9 +23,7 @@ const FaceAuthentication = () => {
       await faceapi.nets.ssdMobilenetv1.loadFromUri("/models/ssdMobilenetv1");
       await faceapi.nets.faceLandmark68Net.loadFromUri("/models/faceLandmark68Net");
       await faceapi.nets.faceRecognitionNet.loadFromUri("/models/faceRecognitionNet");
-      captureAndSendFrames(); // Start once models are ready
     };
-
     loadModels();
 
     const socket = io("http://localhost:5000", {
