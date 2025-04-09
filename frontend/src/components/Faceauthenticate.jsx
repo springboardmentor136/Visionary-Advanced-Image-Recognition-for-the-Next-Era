@@ -7,10 +7,14 @@ import Authentic from "../assets/Authentication.webp";
 const FaceAuthentication = () => {
   const [loading, setLoading] = useState(false);
   const [webcamError, setWebcamError] = useState(false);
+  const [userName, setUserName] = useState(null);
+  const [isWebcamReady, setIsWebcamReady] = useState(false);
+
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
   const hasAuthenticatedRef = useRef(false);
+  const detectionBoxRef = useRef(null);
 
   const videoConstraints = {
     facingMode: "user",
@@ -35,7 +39,13 @@ const FaceAuthentication = () => {
     socket.on("auth_response", (data) => {
       console.log("Response from backend:", data);
       hasAuthenticatedRef.current = true;
+      setUserName(data.name);
       setLoading(false);
+
+      if (detectionBoxRef.current) {
+        const { x, y, width, height } = detectionBoxRef.current;
+        drawBoundingBox(x, y, width, height, data.name, true);
+      }
     });
 
     socketRef.current = socket;
@@ -43,6 +53,7 @@ const FaceAuthentication = () => {
 
   const captureAndSendFrames = async () => {
     setLoading(true);
+    setUserName(null);
     hasAuthenticatedRef.current = false;
 
     const startTime = Date.now();
@@ -51,7 +62,7 @@ const FaceAuthentication = () => {
 
       if (elapsedTime > 5 || hasAuthenticatedRef.current) {
         clearInterval(interval);
-        if (!hasAuthenticatedRef.current) setLoading(false); // stop after timeout
+        if (!hasAuthenticatedRef.current) setLoading(false);
         return;
       }
 
@@ -77,12 +88,17 @@ const FaceAuthentication = () => {
 
       if (detection) {
         const confidence = (detection.detection.score * 100).toFixed(2);
+        const box = detection.detection.box;
+
+        detectionBoxRef.current = box;
+
         drawBoundingBox(
-          detection.detection.box.x,
-          detection.detection.box.y,
-          detection.detection.box.width,
-          detection.detection.box.height,
-          confidence
+          box.x,
+          box.y,
+          box.width,
+          box.height,
+          userName || `Confidence: ${confidence}%`,
+          !!userName
         );
 
         if (confidence >= 90 && socketRef.current && !hasAuthenticatedRef.current) {
@@ -92,19 +108,19 @@ const FaceAuthentication = () => {
     }, 1000);
   };
 
-  const drawBoundingBox = (x, y, width, height, confidence) => {
+  const drawBoundingBox = (x, y, width, height, label = "", isAuthenticated = false) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "red";
+    ctx.strokeStyle = isAuthenticated ? "limegreen" : "red";
     ctx.lineWidth = 3;
     ctx.strokeRect(x, y, width, height);
-    ctx.fillStyle = "blue";
-    ctx.font = "16px Arial";
-    ctx.fillText(`Confidence: ${confidence}%`, x, y - 10);
+    ctx.fillStyle = isAuthenticated ? "limegreen" : "black";
+    ctx.font = "20px Arial";
+    ctx.fillText(label, x, y - 10);
   };
 
   return (
@@ -125,14 +141,24 @@ const FaceAuthentication = () => {
         </p>
       )}
 
-      <div className="relative z-10">
+      <div className="relative z-10 w-[326px] h-[434px]">
         <Webcam
           audio={false}
           ref={webcamRef}
           videoConstraints={videoConstraints}
-          className="border-2 rounded-lg shadow-md mt-2"
+          className="border-2 rounded-lg shadow-md absolute top-0 left-0"
           screenshotFormat="image/webp"
+          onUserMedia={() => setIsWebcamReady(true)}
+          onUserMediaError={(err) => {
+            console.error("❌ Webcam error:", err);
+            setWebcamError(true);
+          }}
         />
+
+{!isWebcamReady && (
+  <div className="w-full h-full bg-black border-2 rounded-lg shadow-md absolute top-0 left-0 z-10" />
+)}
+
         <canvas
           ref={canvasRef}
           className="absolute inset-0 z-20"
