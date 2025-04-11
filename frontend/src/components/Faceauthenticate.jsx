@@ -3,24 +3,30 @@ import Webcam from "react-webcam";
 import * as faceapi from "face-api.js";
 import { io } from "socket.io-client";
 import Authentic from "../assets/Authentication.webp";
+import { toast, Toaster } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+
+// Constants
+const VIDEO_WIDTH = 326;
+const VIDEO_HEIGHT = 434;
+const DETECTION_CONFIDENCE_THRESHOLD = 90;
 
 const FaceAuthentication = () => {
   const [loading, setLoading] = useState(false);
   const [webcamError, setWebcamError] = useState(false);
   const [userName, setUserName] = useState(null);
   const [isWebcamReady, setIsWebcamReady] = useState(false);
+  const [isConfidenceHigh, setIsConfidenceHigh] = useState(false);
+  const [hideFaceNotDetectedMessage, setHideFaceNotDetectedMessage] = useState(false);
 
+  const navigate = useNavigate();
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
   const hasAuthenticatedRef = useRef(false);
   const detectionBoxRef = useRef(null);
 
-  const videoConstraints = {
-    facingMode: "user",
-    width: 326,
-    height: 434,
-  };
+  const isHighConfidence = (score) => score * 100 >= DETECTION_CONFIDENCE_THRESHOLD;
 
   useEffect(() => {
     const loadModels = async () => {
@@ -29,52 +35,16 @@ const FaceAuthentication = () => {
       await faceapi.nets.faceRecognitionNet.loadFromUri("/models/faceRecognitionNet");
     };
     loadModels();
-
-    const socket = io("http://localhost:5000", {
-      transports: ["websocket"],
-    });
-
-    socket.on("connect", () => console.log("✅ WebSocket Connected to Backend"));
-
-    socket.on("auth_response", (data) => {
-      console.log("Response from backend:", data);
-      hasAuthenticatedRef.current = true;
-      setUserName(data.name);
-      setLoading(false);
-
-      if (detectionBoxRef.current) {
-        const { x, y, width, height } = detectionBoxRef.current;
-        drawBoundingBox(x, y, width, height, data.name, true);
-      }
-    });
-
-    socketRef.current = socket;
   }, []);
 
-  const captureAndSendFrames = async () => {
-    setLoading(true);
-    setUserName(null);
-    hasAuthenticatedRef.current = false;
+  useEffect(() => {
+    if (!isWebcamReady || hasAuthenticatedRef.current) return;
 
-    const startTime = Date.now();
-    const interval = setInterval(async () => {
-      const elapsedTime = (Date.now() - startTime) / 1000;
-
-      if (elapsedTime > 5 || hasAuthenticatedRef.current) {
-        clearInterval(interval);
-        if (!hasAuthenticatedRef.current) setLoading(false);
-        return;
-      }
-
+    const detectFace = async () => {
       if (!webcamRef.current) return;
 
       const screenshot = webcamRef.current.getScreenshot();
-      if (!screenshot) {
-        setWebcamError(true);
-        setLoading(false);
-        clearInterval(interval);
-        return;
-      }
+      if (!screenshot) return;
 
       const byteCharacters = atob(screenshot.split(",")[1]);
       const byteArray = new Uint8Array([...byteCharacters].map((ch) => ch.charCodeAt(0)));
@@ -87,44 +57,96 @@ const FaceAuthentication = () => {
         .withFaceDescriptor();
 
       if (detection) {
-        const confidence = (detection.detection.score * 100).toFixed(2);
-        const box = detection.detection.box;
+        const { box, score } = detection.detection;
+        const confidence = (score * 100).toFixed(2);
 
         detectionBoxRef.current = box;
+        setIsConfidenceHigh(isHighConfidence(score));
 
-        drawBoundingBox(
-          box.x,
-          box.y,
-          box.width,
-          box.height,
-          userName || `Confidence: ${confidence}%`,
-          !!userName
-        );
+        drawBoundingBox(box, userName || `Confidence: ${confidence}%`, !!userName);
 
-        if (confidence >= 90 && socketRef.current && !hasAuthenticatedRef.current) {
-          socketRef.current.emit("authenticate", { image: screenshot });
+        const croppedFaceDataUrl = cropFaceFromImage(image, box);
+
+        if (loading && isHighConfidence(score) && socketRef.current && !hasAuthenticatedRef.current) {
+          socketRef.current.emit("authenticate", { image: croppedFaceDataUrl });
         }
+      } else {
+        setIsConfidenceHigh(false);
       }
-    }, 1000);
+    };
+
+    const interval = setInterval(detectFace, 1000); // ⏱️ Auth doesn't need fast detection
+    return () => clearInterval(interval);
+  }, [isWebcamReady, loading]);
+
+  useEffect(() => {
+    const socket = io("http://localhost:5000", { transports: ["websocket"] });
+
+    socket.on("connect", () => console.log("✅ WebSocket connected"));
+
+    socket.on("auth_response", (data) => {
+      console.log("🧠 Auth response:", data);
+
+      if (data.name.toLowerCase() === "unknown") {
+        toast.error("Unrecognized face. Try again.", { position: "top-center" });
+        hasAuthenticatedRef.current = false;
+        setLoading(false);
+        if (detectionBoxRef.current) {
+          drawBoundingBox(detectionBoxRef.current, "Unknown", false);
+        }
+        return;
+      }
+
+      hasAuthenticatedRef.current = true;
+      setUserName(data.name);
+      setLoading(false);
+      drawBoundingBox(detectionBoxRef.current, data.name, true);
+      toast.success(`Authenticated as ${data.name}`, { position: "top-center" });
+
+      setTimeout(() => navigate("/"), 3000);
+    });
+
+    socketRef.current = socket;
+  }, []);
+
+  useEffect(() => {
+    setHideFaceNotDetectedMessage(isConfidenceHigh);
+  }, [isConfidenceHigh]);
+
+  const cropFaceFromImage = (image, box) => {
+    const tempCanvas = document.createElement("canvas");
+    const ctx = tempCanvas.getContext("2d");
+    tempCanvas.width = box.width;
+    tempCanvas.height = box.height;
+    ctx.drawImage(image, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
+    return tempCanvas.toDataURL("image/webp");
   };
 
-  const drawBoundingBox = (x, y, width, height, label = "", isAuthenticated = false) => {
+  const drawBoundingBox = (box, label = "", isAuthenticated = false) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     ctx.strokeStyle = isAuthenticated ? "limegreen" : "red";
     ctx.lineWidth = 3;
-    ctx.strokeRect(x, y, width, height);
-    ctx.fillStyle = isAuthenticated ? "limegreen" : "black";
+    ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+    ctx.fillStyle = ctx.strokeStyle;
     ctx.font = "20px Arial";
-    ctx.fillText(label, x, y - 10);
+    ctx.fillText(label, box.x, box.y - 10);
+  };
+
+  const captureAndSendFrames = () => {
+    if (hasAuthenticatedRef.current) return;
+    setUserName(null);
+    hasAuthenticatedRef.current = false;
+    setLoading(true);
   };
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
+      <Toaster />
       <img
         src={Authentic}
         alt="Background"
@@ -145,7 +167,11 @@ const FaceAuthentication = () => {
         <Webcam
           audio={false}
           ref={webcamRef}
-          videoConstraints={videoConstraints}
+          videoConstraints={{
+            facingMode: "user",
+            width: VIDEO_WIDTH,
+            height: VIDEO_HEIGHT,
+          }}
           className="border-2 rounded-lg shadow-md absolute top-0 left-0"
           screenshotFormat="image/webp"
           onUserMedia={() => setIsWebcamReady(true)}
@@ -154,24 +180,29 @@ const FaceAuthentication = () => {
             setWebcamError(true);
           }}
         />
-
-{!isWebcamReady && (
-  <div className="w-full h-full bg-black border-2 rounded-lg shadow-md absolute top-0 left-0 z-10" />
-)}
-
         <canvas
           ref={canvasRef}
           className="absolute inset-0 z-20"
-          width={326}
-          height={434}
+          width={VIDEO_WIDTH}
+          height={VIDEO_HEIGHT}
         />
       </div>
 
-      <div className="mt-4 z-10 flex flex-col items-center w-full">
+      {!hideFaceNotDetectedMessage && (
+        <p className="text-lg font-medium text-white bg-black px-2 py-1 rounded w-80 text-center mt-4 z-10">
+          No face detected. Adjust position or lighting.
+        </p>
+      )}
+
+      <div className="mt-4 z-10">
         <button
           onClick={captureAndSendFrames}
-          className="bg-blue-500 text-white py-2 px-4 rounded border-2 border-black hover:bg-blue-600 hover:scale-110 transition-transform ease-linear duration-300"
-          disabled={loading}
+          className={`py-2 px-4 rounded border-2 border-black text-white ${
+            !isConfidenceHigh || loading
+              ? "bg-blue-400 cursor-not-allowed opacity-70"
+              : "bg-blue-500 hover:bg-blue-600 hover:scale-110 cursor-pointer transition-transform duration-300"
+          }`}
+          disabled={!isConfidenceHigh || loading}
         >
           {loading ? "Authenticating..." : "Authenticate"}
         </button>
