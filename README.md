@@ -18,6 +18,44 @@ This project is a real-time face recognition authentication system using Flask (
  - Frontend: React, face-api.js, Socket.IO-client
  - Model: FaceNet (for generating facial embeddings)
 
+## Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/springboardmentor136/Visionary-Advanced-Image-Recognition-for-the-Next-Era.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd Visionary-Advanced-Image-Recognition-for-the-Next-Era
+   ```
+3. Navigate to the backend/ directory:
+   ```bash
+   cd backend
+   ```
+4. Activate virtual environment(windows):
+   ```bash
+   venv\Scripts\activate
+   ```
+5. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+6. Run the backend:
+   ```bash
+   python app.py
+   ```
+7. Navigate to the frontend/ directory:
+   ```bash
+   cd frontend
+   ```  
+8. Install dependencies:
+   ```bash
+   npm install
+   ```
+9. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
 
 
 
