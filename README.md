@@ -14,9 +14,11 @@ This project is a real-time face recognition authentication system using Flask (
  - Frontend built with React using face-api.js for capturing and sending images
 
 ## Technologies Used
- - Backend: Flask, Flask-SocketIO
- - Frontend: React, face-api.js, Socket.IO-client, Tailwind CSS
+ - Backend: Flask, Flask-SocketIO,OpenCV
+ - Frontend: React, face-api.js, Socket.IO-client, Webcam, Tailwind CSS
+ - Notifications: React-hot-toast
  - Model: FaceNet (for generating facial embeddings)
+   
 
 ## Installation
 1. Clone the repository:
