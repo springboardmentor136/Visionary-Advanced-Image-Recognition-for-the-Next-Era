@@ -1,7 +1,25 @@
 # Visionary-Advanced-Image-Recognition-for-the-Next-Era
 This project is a real-time face recognition authentication system using Flask (Python) for the backend and React for the frontend. It leverages deep learning-based face embeddings to identify users based on their facial features in live video streams.
+The system provides two types of user roles:
+  - User and Admin: Both can register and log in using face recognition.
+  - It offers secure, contactless authentication through a webcam and stores login logs for accountability.
 
-![Screenshot 2025-04-13 152329](https://github.com/user-attachments/assets/5423129c-487a-4923-bd39-b06fe16134ec)
+# Overview
+
+![Screenshot 2025-04-29 190905](https://github.com/user-attachments/assets/0d7ef7e1-756e-496c-9cd5-e0051d053d0e)
+
+![Screenshot 2025-04-29 191138](https://github.com/user-attachments/assets/ef1a2540-9f46-485d-abd0-5c1a5e3173f4)
+
+User Dashboard
+
+![Screenshot 2025-04-29 191457](https://github.com/user-attachments/assets/9b4c521b-6493-4a31-b858-41ea33525d96)
+
+Admin Dashboard
+
+![Screenshot 2025-04-29 073032](https://github.com/user-attachments/assets/b8580fd3-698e-4710-a4ad-095bf2b63be0)
+
+
+
 
 
 
@@ -12,6 +30,8 @@ This project is a real-time face recognition authentication system using Flask (
  - Fast and accurate recognition with smooth frontend integration
  - Uses FaceNet model via DeepFace for high-quality embeddings
  - Frontend built with React using face-api.js for capturing and sending images
+ - User Dashboard: View personal login logs with date and time
+ - Admin Dashboard: View all registered users,Track all login events,Delete users when needed
 
 ## Technologies Used
  - Backend: Flask, Flask-SocketIO,OpenCV
