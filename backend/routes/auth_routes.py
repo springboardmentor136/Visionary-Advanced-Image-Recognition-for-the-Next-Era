@@ -1,18 +1,18 @@
-# routes/auth_routes.py
-
 from flask import request, jsonify
 from helpers.data_storage import load_data, save_data
 from helpers.face_recognition import extract_embedding
 import numpy as np
 import cv2
+from datetime import datetime  
 from config import MAX_FRAME_WIDTH, DATA_FILE
 
 def register():
     name = request.form.get("name")
+    role = request.form.get("role")  
     image_file = request.files.get("image")
 
-    if not name or not image_file:
-        return jsonify({"error": "Name and image are required"}), 400
+    if not name or not role or not image_file:
+        return jsonify({"error": "Name, role, and image are required"}), 400
 
     try:
         image_bytes = image_file.read()
@@ -28,11 +28,20 @@ def register():
         if embedding is None:
             return jsonify({"error": "Face not detected"}), 400
 
-        # Load existing data from data.json
-        stored_data = load_data(DATA_FILE)
-        stored_data.append({"name": name, "embedding": embedding})
+        # Prepare new user data
+        new_user = {
+            "name": name,
+            "role": role,
+            "registration_date": datetime.now().strftime("%d-%m-%Y"),
+            "registration_time": datetime.now().strftime("%H:%M:%S"),
+            "embedding": embedding
+        }
 
-        # Save the updated data back to data.json
+        # Load existing data
+        stored_data = load_data(DATA_FILE)
+        stored_data.append(new_user)
+
+        # Save updated data
         save_data(DATA_FILE, stored_data)
 
         return jsonify({"message": "User registered successfully"})
